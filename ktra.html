@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<title>App Học Lịch Sử</title>
+
+<style>
+body {
+    font-family: Arial, sans-serif;
+    padding: 20px;
+    background: #eef2f7;
+    text-align: center;
+}
+.card {
+    max-width: 700px;
+    margin: auto;
+    background: #fff;
+    padding: 25px;
+    border-radius: 12px;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+}
+button {
+    padding: 12px 18px;
+    font-size: 16px;
+    margin: 8px;
+    cursor: pointer;
+}
+.selected {
+    background: #d0ebff;
+}
+#timer { font-size: 20px; font-weight: bold; }
+.correct { color: green; }
+.wrong { color: red; }
+</style>
+
+</head>
+<body>
+
+<div class="card">
+
+    <h1>📚 Luyện tập Lịch sử</h1>
+    <p>Điểm cao nhất: <span id="highscore">0</span></p>
+    <hr>
+
+    <div id="quiz-area"></div>
+
+    <p id="feedback"></p>
+    <p id="timer"></p>
+
+</div>
+
+<audio id="sound-right" src="https://actions.google.com/sounds/v1/cartoon/clang_and_wobble.ogg"></audio>
+<audio id="sound-wrong" src="https://actions.google.com/sounds/v1/cartoon/slide_whistle_to_trumpet.ogg"></audio>
+
+<script>
+let highscore = localStorage.getItem("historyHighscore") || 0;
+document.getElementById("highscore").innerText = highscore;
+
+const soundRight = document.getElementById("sound-right");
+const soundWrong = document.getElementById("sound-wrong");
+
+let score = 0;
+let timer;
+let timeLeft = 30;
+
+const quizData = [
+    { type: "tf", text: "Ngày 3/2/1930 là ngày thành lập Đảng Cộng sản Việt Nam.", correct: true },
+    { type: "tf", text: "Đảng ra đời đã giải quyết mọi mâu thuẫn giai cấp ở Việt Nam.", correct: false },
+    { type: "tf", text: "Nguyễn Ái Quốc ra đi tìm đường cứu nước năm 1911.", correct: true },
+];
+
+const matchData = [
+    {
+        event: "Cách mạng Tháng Mười Nga",
+        years: ["1917","1925","1986"],
+        meanings: [
+            "Mở ra thời đại mới của lịch sử nhân loại",
+            "Chuẩn bị cho sự ra đời của Đảng",
+            "Đưa đất nước thoát khỏi khủng hoảng"
+        ],
+        correctYear: "1917",
+        correctMeaning: "Mở ra thời đại mới của lịch sử nhân loại"
+    },
+    {
+        event: "Nguyễn Ái Quốc đọc Luận cương",
+        years: ["7/1920","1911","1925"],
+        meanings: [
+            "Khẳng định con đường giải phóng dân tộc Việt Nam",
+            "Đưa đất nước thoát khỏi khủng hoảng",
+            "Mở ra thời đại mới"
+        ],
+        correctYear: "7/1920",
+        correctMeaning: "Khẳng định con đường giải phóng dân tộc Việt Nam"
+    }
+];
+
+let combined = [...quizData, ...matchData];
+shuffle(combined);
+
+function shuffle(arr) {
+    for (let i = arr.length-1; i>0; i--) {
+        let j = Math.floor(Math.random() * (i+1));
+        [arr[i], arr[j]] = [arr[j], arr[i]];
+    }
+}
+
+let index = 0;
+
+function startTimer() {
+    timeLeft = 30;
+    document.getElementById("timer").innerText = "⏱️ " + timeLeft + "s";
+    timer = setInterval(() => {
+        timeLeft--;
+        document.getElementById("timer").innerText = "⏱️ " + timeLeft + "s";
+        if (timeLeft <= 0) {
+            clearInterval(timer);
+            document.getElementById("feedback").innerText = "⏳ Hết giờ!";
+            next();
+        }
+    }, 1000);
+}
+
+function show() {
+    document.getElementById("quiz-area").innerHTML = "";
+    document.getElementById("feedback").innerText = "";
+
+    let item = combined[index];
+
+    if (item.type === "tf") {
+        let html = `<h2>${item.text}</h2>`;
+        html += `<button onclick="checkTF(true)">ĐÚNG</button>`;
+        html += `<button onclick="checkTF(false)">SAI</button>`;
+        document.getElementById("quiz-area").innerHTML = html;
+    } else {
+        let html = `<h2>Nối thẻ: ${item.event}</h2>`;
+        html += `<h3>Chọn năm</h3><div id="yrs"></div>`;
+        html += `<h3>Chọn ý nghĩa</h3><div id="mng"></div>`;
+        html += `<button onclick="checkMatch()">Kiểm tra</button>`;
+        document.getElementById("quiz-area").innerHTML = html;
+
+        item.years.forEach(y => {
+            let d = document.createElement("div");
+            d.innerText = y;
+            d.className = "box";
+            d.onclick = () => selectYear(y, d);
+            document.getElementById("yrs").appendChild(d);
+        });
+        item.meanings.forEach(m => {
+            let d = document.createElement("div");
+            d.innerText = m;
+            d.className = "box";
+            d.onclick = () => selectMeaning(m, d);
+            document.getElementById("mng").appendChild(d);
+        });
+    }
+
+    startTimer();
+}
+
+let chosenYear = "";
+let chosenMeaning = "";
+
+function selectYear(y, elem) {
+    chosenYear = y;
+    document.querySelectorAll("#yrs .box").forEach(b => b.classList.remove("selected"));
+    elem.classList.add("selected");
+}
+function selectMeaning(m, elem) {
+    chosenMeaning = m;
+    document.querySelectorAll("#mng .box").forEach(b => b.classList.remove("selected"));
+    elem.classList.add("selected");
+}
+
+function checkTF(ans) {
+    clearInterval(timer);
+    let item = combined[index];
+    if (ans === item.correct) {
+        soundRight.play();
+        score++;
+        document.getElementById("feedback").innerText = "🎉 Chính xác!";
+    } else {
+        soundWrong.play();
+        document.getElementById("feedback").innerText = "💔 Sai rồi!";
+    }
+    next();
+}
+
+function checkMatch() {
+    clearInterval(timer);
+    let item = combined[index];
+    if (chosenYear === item.correctYear && chosenMeaning === item.correctMeaning) {
+        soundRight.play();
+        score++;
+        document.getElementById("feedback").innerText = "🎉 Chính xác!";
+    } else {
+        soundWrong.play();
+        document.getElementById("feedback").innerText = "💔 Sai rồi!";
+    }
+    next();
+}
+
+function next() {
+    index++;
+    if (index >= combined.length) {
+        setTimeout(() => {
+            alert("🎊 Hoàn thành! Điểm của em: " + score);
+            if (score > highscore) {
+                localStorage.setItem("historyHighscore", score);
+                document.getElementById("highscore").innerText = score;
+            }
+            index = 0;
+            score = 0;
+            shuffle(combined);
+            show();
+        }, 600);
+    } else {
+        setTimeout(show, 1000);
+    }
+}
+
+show();
+
+</script>
+
+</body>
+</html>
